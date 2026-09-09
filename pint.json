@@ -1,0 +1,8 @@
+{
+    "preset": "laravel",
+    "rules": {
+        "no_blank_lines_after_class_opening": false,
+        "class_attributes_separation": false,
+        "no_extra_blank_lines": false
+    }
+}

@@ -1,0 +1,72 @@
+{
+    "$schema": "https://getcomposer.org/schema.json",
+    "name": "coyote6/laravel-locale",
+    "description": "Countries, states, timezones, and region/subregion lookups for Laravel, plus language lookups via Symfony Intl. Imports from dr5hn/countries-states-cities-database on a configurable schedule rather than bundling a data snapshot.",
+    "type": "library",
+    "keywords": ["laravel", "locale", "countries", "states", "timezones", "i18n"],
+    "homepage": "https://coyote6.com",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Tanner Naeher",
+            "email": "tanner@coyote6.com",
+            "homepage": "https://coyote6.com",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": "^8.3",
+        "coyote6/laravel-base": "^2.0",
+        "illuminate/console": "^12.0|^13.0",
+        "illuminate/database": "^12.0|^13.0",
+        "illuminate/http": "^12.0|^13.0",
+        "illuminate/support": "^12.0|^13.0",
+        "symfony/intl": "^8.1"
+    },
+    "require-dev": {
+        "larastan/larastan": "^3.9",
+        "laravel/pint": "^1.27",
+        "orchestra/testbench": "^10.0|^11.0",
+        "pestphp/pest": "^4.7",
+        "pestphp/pest-plugin-laravel": "^4.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "Coyote6\\LaravelLocale\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Coyote6\\LaravelLocale\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Coyote6\\LaravelLocale\\Providers\\LocaleServiceProvider"
+            ],
+            "aliases": {
+                "Locale": "Coyote6\\LaravelLocale\\Facades\\Locale"
+            }
+        }
+    },
+    "scripts": {
+        "lint": "pint --dirty",
+        "lint:check": "pint --test",
+        "types:check": "phpstan analyse",
+        "test": [
+            "@lint:check",
+            "@types:check",
+            "@php vendor/bin/pest"
+        ]
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true,
+            "php-http/discovery": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
