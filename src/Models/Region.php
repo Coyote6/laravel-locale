@@ -2,6 +2,7 @@
 
 namespace Coyote6\LaravelLocale\Models;
 
+use Coyote6\LaravelBase\Traits\Models\GetAsOptions;
 use Coyote6\LaravelLocale\Concerns\BuildsEmptyRelations;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -11,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 // abbreviation to mean anything.
 class Region extends Model
 {
-    use BuildsEmptyRelations;
+    use BuildsEmptyRelations, GetAsOptions;
 
     protected $keyType = 'string';
 

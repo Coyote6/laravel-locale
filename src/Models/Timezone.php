@@ -2,14 +2,18 @@
 
 namespace Coyote6\LaravelLocale\Models;
 
+use Closure;
 use Coyote6\LaravelLocale\Concerns\BuildsEmptyRelations;
+use Coyote6\LaravelLocale\Concerns\BuildsFilteredOptions;
 use Coyote6\LaravelLocale\Concerns\HasAbbr;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 
 class Timezone extends Model
 {
-    use BuildsEmptyRelations, HasAbbr;
+    use BuildsEmptyRelations, BuildsFilteredOptions, HasAbbr;
 
 
     // Model
@@ -81,5 +85,57 @@ class Timezone extends Model
         }
 
         return $this->belongsToMany(Country::class, config('locale.table_names.country_timezone'));
+    }
+
+
+    //
+    // Options
+    //
+
+
+    // Get As Options Where Country Is
+    //
+    // getAsOptions() scoped to the timezones linked to one country. Filters
+    // the country_timezone pivot's own country_id column directly, rather
+    // than going through the countries() relationship -- that column is
+    // always populated whenever this table exists at all (see
+    // GeoDataImporter::upsertTimezone()), so this resolves correctly even
+    // when config('locale.datasets.countries') is off and the countries
+    // table doesn't exist.
+    //
+    // $country may be a Country model (its key -- the alpha-2 code -- is
+    // used), that code as a string (the pivot's exact country_id value, so
+    // it filters directly with no lookup), or a closure that receives the
+    // query builder and applies its own filter (e.g. to match a non-key
+    // identifier via the countries() relationship instead).
+    //
+    // @param $country \Coyote6\LaravelLocale\Models\Country|string|\Closure(\Illuminate\Database\Eloquent\Builder): void - Country model, its alpha-2 id, or a custom filter closure [Ex: 'US']
+    // @param $key string - Attribute to key each option by [Ex: id]
+    // @param $field string - Attribute to use as each option's label [Ex: name]
+    // @param $limit int - Maximum options to return, or 0 for all [Ex: 25]
+    // @param $page int - 1-based page to return when $limit is set [Ex: 2]
+    // @param $modifyQuery ?\Closure(\Illuminate\Database\Eloquent\Builder): void - The caller's own query adjustments, run after the country filter; owns ordering when given
+    //
+    // @return array<array-key, string>
+    //
+    public static function getAsOptionsWhereCountryIs(Country|string|Closure $country, string $key = 'id', string $field = 'name', int $limit = 0, int $page = 1, ?Closure $modifyQuery = null): array
+    {
+        if ($country instanceof Closure) {
+            $filter = $country;
+        } else {
+            $countryId = $country instanceof Country ? $country->getKey() : $country;
+
+            $filter = function (Builder $query) use ($countryId): void {
+                $query->whereIn(
+                    $query->getModel()->getKeyName(),
+                    fn (QueryBuilder $pivot) => $pivot
+                        ->select('timezone_id')
+                        ->from(config('locale.table_names.country_timezone'))
+                        ->where('country_id', $countryId),
+                );
+            };
+        }
+
+        return static::getAsOptionsFiltered($filter, $key, $field, $limit, $page, $modifyQuery);
     }
 }

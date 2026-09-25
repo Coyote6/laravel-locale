@@ -16,7 +16,7 @@
     ],
     "require": {
         "php": "^8.3",
-        "coyote6/laravel-base": "^2.0",
+        "coyote6/laravel-base": "^2.1",
         "illuminate/console": "^12.0|^13.0",
         "illuminate/database": "^12.0|^13.0",
         "illuminate/http": "^12.0|^13.0",

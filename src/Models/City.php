@@ -2,7 +2,9 @@
 
 namespace Coyote6\LaravelLocale\Models;
 
+use Closure;
 use Coyote6\LaravelLocale\Concerns\BuildsEmptyRelations;
+use Coyote6\LaravelLocale\Concerns\HasCountryColumnOptions;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -17,9 +19,18 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 //		source's own stable numeric id, not Laravel's auto-increment (the
 //		importer sets it explicitly), but still numeric like Eloquent's
 //		default expects. See GeoDataImporter::upsertCities().
+//
+// @ai
+//		getAsOptions() (from Concerns\HasCountryColumnOptions ->
+//		Concerns\BuildsFilteredOptions -> coyote6/laravel-base's
+//		GetAsOptions) is inherited here same as every other model, but this
+//		table can run to ~153,000 rows — pass $limit, or prefer
+//		getAsOptionsWhereCountryIs() / getAsOptionsWhereStateIs() /
+//		getAsOptionsWhereStateAndCountryAre() below, rather than plucking
+//		every city.
 class City extends Model
 {
-    use BuildsEmptyRelations;
+    use BuildsEmptyRelations, HasCountryColumnOptions;
 
     public $incrementing = false;
 
@@ -98,5 +109,80 @@ class City extends Model
     public function timezone(): BelongsTo
     {
         return $this->belongsTo(Timezone::class);
+    }
+
+
+    //
+    // Options
+    //
+
+
+    // Get As Options Where State Is
+    //
+    // getAsOptions() scoped to one state's cities. $state may be a State
+    // model (its key -- the ISO 3166-2 id, e.g. "US-CA" -- is used), that id
+    // as a string (this column's exact value, so it filters directly with no
+    // lookup), or a closure that receives the query builder and applies its
+    // own filter.
+    //
+    // @see Concerns\BuildsFilteredOptions::optionFilter()
+    //
+    // @param $state \Coyote6\LaravelLocale\Models\State|string|\Closure(\Illuminate\Database\Eloquent\Builder): void - State model, its ISO 3166-2 id, or a custom filter closure [Ex: 'US-CA']
+    // @param $key string - Attribute to key each option by [Ex: id]
+    // @param $field string - Attribute to use as each option's label [Ex: name]
+    // @param $limit int - Maximum options to return, or 0 for all [Ex: 25]
+    // @param $page int - 1-based page to return when $limit is set [Ex: 2]
+    // @param $modifyQuery ?\Closure(\Illuminate\Database\Eloquent\Builder): void - The caller's own query adjustments, run after the state filter; owns ordering when given
+    //
+    // @return array<array-key, string>
+    //
+    public static function getAsOptionsWhereStateIs(State|string|Closure $state, string $key = 'id', string $field = 'name', int $limit = 0, int $page = 1, ?Closure $modifyQuery = null): array
+    {
+        return static::getAsOptionsFiltered(
+            static::optionFilter($state, 'state_id'),
+            $key,
+            $field,
+            $limit,
+            $page,
+            $modifyQuery,
+        );
+    }
+
+
+    // Get As Options Where State And Country Are
+    //
+    // getAsOptions() scoped to one state's cities AND that state's country --
+    // $state and $country each accept the same Model|string|Closure forms as
+    // getAsOptionsWhereStateIs() / Concerns\HasCountryColumnOptions::getAsOptionsWhereCountryIs()
+    // above, and both filters are applied together.
+    //
+    // @see Concerns\BuildsFilteredOptions::optionFilter()
+    //
+    // @param $state \Coyote6\LaravelLocale\Models\State|string|\Closure(\Illuminate\Database\Eloquent\Builder): void - State model, its ISO 3166-2 id, or a custom filter closure [Ex: 'US-CA']
+    // @param $country \Coyote6\LaravelLocale\Models\Country|string|\Closure(\Illuminate\Database\Eloquent\Builder): void - Country model, its alpha-2 id, or a custom filter closure [Ex: 'US']
+    // @param $key string - Attribute to key each option by [Ex: id]
+    // @param $field string - Attribute to use as each option's label [Ex: name]
+    // @param $limit int - Maximum options to return, or 0 for all [Ex: 25]
+    // @param $page int - 1-based page to return when $limit is set [Ex: 2]
+    // @param $modifyQuery ?\Closure(\Illuminate\Database\Eloquent\Builder): void - The caller's own query adjustments, run after both filters; owns ordering when given
+    //
+    // @return array<array-key, string>
+    //
+    public static function getAsOptionsWhereStateAndCountryAre(State|string|Closure $state, Country|string|Closure $country, string $key = 'id', string $field = 'name', int $limit = 0, int $page = 1, ?Closure $modifyQuery = null): array
+    {
+        $stateFilter = static::optionFilter($state, 'state_id');
+        $countryFilter = static::optionFilter($country, 'country_id');
+
+        return static::getAsOptionsFiltered(
+            function ($query) use ($stateFilter, $countryFilter): void {
+                $stateFilter($query);
+                $countryFilter($query);
+            },
+            $key,
+            $field,
+            $limit,
+            $page,
+            $modifyQuery,
+        );
     }
 }

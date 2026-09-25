@@ -5,12 +5,13 @@ namespace Coyote6\LaravelLocale\Models;
 use Coyote6\LaravelLocale\Concerns\BuildsEmptyRelations;
 use Coyote6\LaravelLocale\Concerns\HasAbbr;
 use Coyote6\LaravelLocale\Concerns\HasAbbreviation;
+use Coyote6\LaravelLocale\Concerns\HasCountryColumnOptions;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class State extends Model
 {
-    use BuildsEmptyRelations, HasAbbr, HasAbbreviation;
+    use BuildsEmptyRelations, HasAbbr, HasAbbreviation, HasCountryColumnOptions;
 
 
     // Model

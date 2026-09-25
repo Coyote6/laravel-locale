@@ -2,6 +2,7 @@
 
 namespace Coyote6\LaravelLocale\Models;
 
+use Coyote6\LaravelBase\Traits\Models\GetAsOptions;
 use Coyote6\LaravelLocale\Concerns\BuildsEmptyRelations;
 use Coyote6\LaravelLocale\Concerns\HasAbbr;
 use Coyote6\LaravelLocale\Concerns\HasAbbreviation;
@@ -10,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Currency extends Model
 {
-    use BuildsEmptyRelations, HasAbbr, HasAbbreviation;
+    use BuildsEmptyRelations, GetAsOptions, HasAbbr, HasAbbreviation;
 
 
     // Model
@@ -68,6 +69,13 @@ class Currency extends Model
     //		is off — a Currency row can exist independently of Country (see
     //		GeoDataImporter::upsertCountry()), so the countries table this
     //		queries may not exist at all.
+    //
+    //		No getAsOptionsWhereCountryIs() on this model (unlike
+    //		State/City/Timezone) — a country has exactly one currency (see
+    //		this method's own note above), so scoping options to one country
+    //		would return at most one option, not a meaningful dropdown.
+    //		Revisit if a source that reliably links multiple currencies to a
+    //		country ever turns up.
     //
     // @return \Illuminate\Database\Eloquent\Relations\HasMany
     //

@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `Country`, `Currency`, `Region`, `State`, `Timezone`, `Subregion`, and
+  `City` now compose `coyote6/laravel-base`'s `GetAsOptions`, so every one
+  exposes `Model::getAsOptions(string $key = 'id', string $field = 'name',
+  int $limit = 0, int $page = 1, ?Closure $modifyQuery = null): array` —
+  `$key`/`$field` must be real columns (e.g. `getAsOptions('iso3')`,
+  `getAsOptions('code')`); the base trait plucks at the query level, so the
+  `abbr`/`abbreviation` accessors from `Concerns\HasAbbr`/`HasAbbreviation`
+  aren't valid `$key`/`$field` values.
+- `Concerns\BuildsFilteredOptions` — the composition engine behind this
+  package's new relationship-scoped option-list helpers. Its
+  `optionFilter()` normalizes a helper's first argument (a related model, its
+  key as a string, or a closure that filters the query itself) into a filter
+  closure; `getAsOptionsFiltered()` composes that filter with the caller's
+  own `$modifyQuery`, preserving `GetAsOptions`' rule that an explicit
+  `$modifyQuery` owns ordering.
+- `Concerns\HasCountryColumnOptions` and the new helpers built on it:
+  `State::getAsOptionsWhereCountryIs()`,
+  `City::getAsOptionsWhereCountryIs()` /
+  `City::getAsOptionsWhereStateIs()` /
+  `City::getAsOptionsWhereStateAndCountryAre()`,
+  `Timezone::getAsOptionsWhereCountryIs()` (filters the `country_timezone`
+  pivot's own `country_id` directly, so it resolves even with the countries
+  dataset disabled), and `Subregion::getAsOptionsWhereRegionIs()`. Each takes
+  a `Model|string|Closure` first argument — a related model, that model's id
+  as a string (matched directly against the always-populated local foreign
+  key column, no lookup), or a closure for matching on anything else (e.g. an
+  `iso3` code) — followed by the full `getAsOptions()` parameter list.
+  `Currency` does not get a `getAsOptionsWhereCountryIs()`: a country has
+  exactly one currency, so it would return at most one option — see the `@ai`
+  note on `Currency::countries()`.
+
+### Changed
+
+- Requires `coyote6/laravel-base` `^2.1` (was `^2.0`), for the unified
+  `GetAsOptions::getAsOptions()` signature.
+
 ## [1.0.0] - 2026-08-27
 
 Initial release.

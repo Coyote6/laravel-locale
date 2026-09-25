@@ -180,6 +180,68 @@ just be a pass-through of itself. `Region`/`Subregion`/`City` aren't in this
 config at all — none of the three has a natural code/iso field for an
 abbreviation to mean anything.
 
+## Option lists
+
+Every model composes [`coyote6/laravel-base`](https://github.com/Coyote6/laravel-base)'s
+`GetAsOptions`, so `Model::getAsOptions()` gives you a select-ready
+`$key => $field` list, ordered by `$field` ascending:
+
+```php
+Country::getAsOptions();               // ['CA' => 'Canada', 'US' => 'United States', ...]
+Country::getAsOptions('iso3');         // ['CAN' => 'Canada', 'USA' => 'United States', ...]
+State::getAsOptions(limit: 25, page: 2);
+```
+
+`$key`/`$field` must be real columns — `getAsOptions()` plucks at the query
+level, so the `abbr`/`abbreviation` accessors from
+[abbreviation accessors](#abbreviation-accessors) above aren't valid values
+here; pass the concrete column instead (`'iso3'`, `'code'`, `'abbreviation'`).
+See `GetAsOptions` for the full `$key`/`$field`/`$limit`/`$page`/`$modifyQuery`
+signature.
+
+**Relationship-scoped option lists** filter that same list to one country,
+state, or region — the first argument accepts the related model, that
+model's id as a string, or a closure, followed by the same
+`$key`/`$field`/`$limit`/`$page`/`$modifyQuery` parameters as `getAsOptions()`:
+
+```php
+State::getAsOptionsWhereCountryIs('US');                    // states.country_id = 'US', direct — no lookup
+State::getAsOptionsWhereCountryIs(Country::find('US'));     // same, from a Country instance
+
+City::getAsOptionsWhereCountryIs('US');
+City::getAsOptionsWhereStateIs('US-CA');
+City::getAsOptionsWhereStateAndCountryAre('US-CA', 'US');
+
+Timezone::getAsOptionsWhereCountryIs('US');                 // via the country_timezone pivot
+Subregion::getAsOptionsWhereRegionIs('americas');
+```
+
+A string is matched directly against the target's local foreign-key column
+(`states.country_id`, `cities.state_id`, the `country_timezone` pivot's own
+`country_id`, `subregions.region_id`) — every one of those already holds the
+related row's natural code (see
+[Primary keys are natural codes](#primary-keys-are-natural-codes-not-surrogate-ids)
+above), so no second query and no join is ever needed, even for `City`. To
+match on something else — an `iso3` code, a name — pass a closure instead; it
+receives the query builder and becomes the filter:
+
+```php
+State::getAsOptionsWhereCountryIs(
+    fn ($query) => $query->whereHas('country', fn ($country) => $country->where('iso3', 'USA'))
+);
+```
+
+`Timezone::getAsOptionsWhereCountryIs()` filters the `country_timezone`
+pivot's own `country_id` directly rather than going through the `countries()`
+relationship, so — like the always-populated `country_id` columns on
+`states`/`cities` — it resolves correctly even when the `countries` dataset
+is disabled.
+
+`Currency` has no `getAsOptionsWhereCountryIs()`: a country has exactly one
+currency (see [Country currency](#country-currency) below), so scoping
+options to one country would return at most one option, not a meaningful
+dropdown.
+
 ## Country currency
 
 ```php

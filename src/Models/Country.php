@@ -2,6 +2,7 @@
 
 namespace Coyote6\LaravelLocale\Models;
 
+use Coyote6\LaravelBase\Traits\Models\GetAsOptions;
 use Coyote6\LaravelLocale\Concerns\BuildsEmptyRelations;
 use Coyote6\LaravelLocale\Concerns\HasAbbr;
 use Coyote6\LaravelLocale\Concerns\HasAbbreviation;
@@ -13,9 +14,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\DB;
 
+// @ai
+//		getAsOptions() plucks 'id' => 'name' by default — real columns only,
+//		so keying by the abbreviation accessor (getAsOptions('abbr')) isn't
+//		supported; pass a real column instead (e.g. getAsOptions('iso3')).
+//		See coyote6/laravel-base's GetAsOptions for the full signature.
 class Country extends Model
 {
-    use BuildsEmptyRelations, HasAbbr, HasAbbreviation;
+    use BuildsEmptyRelations, GetAsOptions, HasAbbr, HasAbbreviation;
 
 
     // Model
