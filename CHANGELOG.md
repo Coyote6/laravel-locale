@@ -39,11 +39,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Currency` does not get a `getAsOptionsWhereCountryIs()`: a country has
   exactly one currency, so it would return at most one option — see the `@ai`
   note on `Currency::countries()`.
+- `State::getAsOptions()` / `City::getAsOptions()` now default `$field` to a
+  richer, disambiguated label instead of the bare `name` — `"US - California"`
+  for `State`, `"US - CA - Los Angeles"` for `City` (skipping the state
+  segment entirely for a city with no `state_id`, e.g. `"FR - Paris"`, rather
+  than a dangling separator). Built as a driver-aware `DB::raw()` `Expression`
+  (`Concerns\BuildsFilteredOptions::concatSql()` / `substrFromSql()`), not a
+  `Closure` — every column it needs (`country_id`, `state_id`) is already
+  denormalized onto the row, so no join and no eager-loaded relation are
+  needed, keeping the default call as cheap as the old bare-`name` one. An
+  explicit `$field` still opts back into a plain column. **Both models are
+  still unlimited by default** — pass `$field`/`$modifyQuery`/`$limit`, this
+  doesn't change either model's own size (`City` runs to ~153,000 rows).
+- `.github/workflows/tests.yml` — this package had no CI at all before this;
+  a sqlite matrix (`php: 8.3/8.4` × `dependency-version: lowest/highest`)
+  plus a dedicated `test-mariadb` job against a real `mariadb:11` service
+  container, mirroring `coyote6/laravel-base`'s CI.
 
 ### Changed
 
-- Requires `coyote6/laravel-base` `^2.1` (was `^2.0`), for the unified
-  `GetAsOptions::getAsOptions()` signature.
+- Requires `coyote6/laravel-base` `^2.2` (was `^2.0`), for the unified
+  `GetAsOptions::getAsOptions()` signature (`^2.1`) and `$field`'s
+  `Expression`/`Closure` support (`^2.2`, now used by `State`/`City`'s new
+  default labels above).
+- `tests/TestCase.php`'s `defineEnvironment()` no longer hardcodes sqlite —
+  it now honors `DB_CONNECTION`/`DB_HOST`/etc. when set (the CI MariaDB leg),
+  falling back to the same in-memory sqlite connection as before when unset
+  (every local/default `vendor/bin/pest` run is unaffected).
 
 ## [1.0.0] - 2026-08-27
 

@@ -199,6 +199,24 @@ here; pass the concrete column instead (`'iso3'`, `'code'`, `'abbreviation'`).
 See `GetAsOptions` for the full `$key`/`$field`/`$limit`/`$page`/`$modifyQuery`
 signature.
 
+**`State` and `City` default `$field` to a richer, disambiguated label**
+instead of the bare `name` — a plain state/city name reads ambiguously once a
+list mixes rows from more than one country:
+
+```php
+State::getAsOptions(); // ['US-CA' => 'US - California', 'US-TX' => 'US - Texas', 'CA-ON' => 'CA - Ontario', ...]
+City::getAsOptions();  // ['US - CA - Los Angeles', 'US - CA - San Francisco', 'FR - Paris', ...] (no dangling separator when a city has no state)
+```
+
+Pass an explicit `$field` (a column, a `DB::raw()` `Expression`, or a
+`Closure`) to opt back into a plain column — nothing else about the method
+changes. **Both are still unlimited by default** — `State` runs to a few
+thousand rows worldwide, `City` to ~153,000 — so treat a bare, unscoped call
+to either as a real cost, not a free convenience: pass `$limit`/`$page`, or
+scope first with `getAsOptionsWhereCountryIs()` / `WhereStateIs()` /
+`WhereStateAndCountryAre()` below. 153,000 options is never a usable dropdown
+regardless of how cheap the underlying query is.
+
 **Relationship-scoped option lists** filter that same list to one country,
 state, or region — the first argument accepts the related model, that
 model's id as a string, or a closure, followed by the same

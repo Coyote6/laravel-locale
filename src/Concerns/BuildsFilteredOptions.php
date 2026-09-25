@@ -75,4 +75,71 @@ trait BuildsFilteredOptions
 
         return fn (Builder $query) => $query->where($column, $value);
     }
+
+
+    // Concat Sql
+    //
+    // Builds a driver-aware SQL concatenation of $fragments, in order. Each
+    // fragment is inserted as-is -- callers pass trusted column names /
+    // already-quoted string literals (e.g. "' - '"), never raw user input.
+    // Returns a plain SQL string, not yet aliased -- composable as a
+    // fragment of a larger expression (see Models\City::defaultLabelExpression()
+    // for nesting this inside a COALESCE).
+    //
+    // @param $fragments list<string> - Column names / quoted literals to concatenate, in order [Ex: ['country_id', "' - '", 'name']]
+    //
+    // @return string
+    //
+    protected static function concatSql(array $fragments): string
+    {
+        return match (static::connectionDriverName()) {
+            'sqlite', 'pgsql' => '('.implode(' || ', $fragments).')',
+            'sqlsrv' => '('.implode(' + ', $fragments).')',
+            default => 'CONCAT('.implode(', ', $fragments).')', // mysql, mariadb
+        };
+    }
+
+
+    // Substr From Sql
+    //
+    // Driver-aware "everything from $start to the end of $column" fragment.
+    // SQLite/MySQL/MariaDB/Postgres all support the 2-argument
+    // SUBSTR(column, start) form identically; SQL Server's SUBSTRING
+    // requires an explicit length, so it gets LEN($column) -- always >= the
+    // remaining characters, so it safely captures "to the end" without
+    // needing to know the exact length up front (a standard SQL Server
+    // idiom for this).
+    //
+    // @param $column string - The column to take a substring of [Ex: state_id]
+    // @param $start int - 1-based starting position [Ex: 4]
+    //
+    // @return string
+    //
+    protected static function substrFromSql(string $column, int $start): string
+    {
+        return match (static::connectionDriverName()) {
+            'sqlsrv' => "SUBSTRING({$column}, {$start}, LEN({$column}))",
+            default => "SUBSTR({$column}, {$start})",
+        };
+    }
+
+
+    // Connection Driver Name
+    //
+    // static::query()->getConnection() is typed to ConnectionInterface,
+    // which doesn't declare getDriverName() -- only the concrete Connection
+    // class does. getModel()->getConnection() reaches the same connection
+    // through the model instance Eloquent's own query() already constructed
+    // internally (Model::getConnection() is documented to return the
+    // concrete class), rather than this trait constructing its own via
+    // `new static()` -- which PHPStan correctly flags as unsafe inside a
+    // trait, since it can't verify every possible composing class supports
+    // a no-argument constructor.
+    //
+    // @return string
+    //
+    protected static function connectionDriverName(): string
+    {
+        return static::query()->getModel()->getConnection()->getDriverName();
+    }
 }

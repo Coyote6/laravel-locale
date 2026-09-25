@@ -150,3 +150,52 @@ test('Subregion::getAsOptionsWhereRegionIs filters on region_id', function () {
     expect(Subregion::getAsOptionsWhereRegionIs('americas'))->toBe(['northern-america' => 'Northern America'])
         ->and(Subregion::getAsOptionsWhereRegionIs(Region::query()->find('europe')))->toBe(['southern-europe' => 'Southern Europe']);
 });
+
+test('State::getAsOptions defaults to a "country - name" label, ordered by country then name', function () {
+    seedTwoCountriesWithStatesAndCities();
+
+    expect(State::getAsOptions())->toBe([
+        'CA-ON' => 'CA - Ontario',
+        'US-CA' => 'US - California',
+        'US-TX' => 'US - Texas',
+    ]);
+});
+
+test('State::getAsOptions still accepts an explicit $field, with the normal alphabetical default order', function () {
+    seedTwoCountriesWithStatesAndCities();
+
+    expect(State::getAsOptions(field: 'name'))->toBe([
+        'US-CA' => 'California',
+        'CA-ON' => 'Ontario',
+        'US-TX' => 'Texas',
+    ]);
+});
+
+test('City::getAsOptions defaults to a "country - state - name" label, ordered by country/state/name', function () {
+    seedTwoCountriesWithStatesAndCities();
+
+    expect(City::getAsOptions())->toBe([
+        4 => 'CA - ON - Toronto',
+        1 => 'US - CA - Los Angeles',
+        2 => 'US - CA - San Francisco',
+        3 => 'US - TX - Austin',
+    ]);
+});
+
+test('City::getAsOptions skips the missing segment for a city with no state_id, instead of a dangling separator', function () {
+    Country::query()->create(['id' => 'FR', 'iso3' => 'FRA', 'name' => 'France']);
+    City::query()->create(['id' => 5, 'country_id' => 'FR', 'state_id' => null, 'name' => 'Paris']);
+
+    expect(City::getAsOptions())->toBe([5 => 'FR - Paris']);
+});
+
+test('City::getAsOptions still accepts an explicit $field, with the normal alphabetical default order', function () {
+    seedTwoCountriesWithStatesAndCities();
+
+    expect(City::getAsOptions(field: 'name'))->toBe([
+        3 => 'Austin',
+        1 => 'Los Angeles',
+        2 => 'San Francisco',
+        4 => 'Toronto',
+    ]);
+});

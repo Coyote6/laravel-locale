@@ -5,8 +5,10 @@ namespace Coyote6\LaravelLocale\Models;
 use Closure;
 use Coyote6\LaravelLocale\Concerns\BuildsEmptyRelations;
 use Coyote6\LaravelLocale\Concerns\HasCountryColumnOptions;
+use Illuminate\Contracts\Database\Query\Expression;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\DB;
 
 // No Concerns\HasAbbreviation / HasAbbr here — see config/locale.php's
 // 'abbreviations' block: cities have no natural code/iso field for an
@@ -21,16 +23,17 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 //		default expects. See GeoDataImporter::upsertCities().
 //
 // @ai
-//		getAsOptions() (from Concerns\HasCountryColumnOptions ->
-//		Concerns\BuildsFilteredOptions -> coyote6/laravel-base's
-//		GetAsOptions) is inherited here same as every other model, but this
-//		table can run to ~153,000 rows — pass $limit, or prefer
-//		getAsOptionsWhereCountryIs() / getAsOptionsWhereStateIs() /
-//		getAsOptionsWhereStateAndCountryAre() below, rather than plucking
-//		every city.
+//		getAsOptions() below is overridden, not just inherited -- this
+//		table can run to ~153,000 rows regardless of what $field ends up
+//		being, so pass $limit, or prefer getAsOptionsWhereCountryIs() /
+//		getAsOptionsWhereStateIs() / getAsOptionsWhereStateAndCountryAre()
+//		below, rather than plucking every city. See getAsOptions()'s own
+//		docblock.
 class City extends Model
 {
-    use BuildsEmptyRelations, HasCountryColumnOptions;
+    use BuildsEmptyRelations, HasCountryColumnOptions {
+        HasCountryColumnOptions::getAsOptions as protected getAsBaseOptions;
+    }
 
     public $incrementing = false;
 
@@ -115,6 +118,75 @@ class City extends Model
     //
     // Options
     //
+
+
+    // Get As Options
+    //
+    // Same as GetAsOptions::getAsOptions(), except the default $field
+    // combines country code, state code, and city name
+    // ("US - CA - Los Angeles") instead of the bare name, so a list mixing
+    // cities from more than one country/state stays legible -- see
+    // defaultLabelExpression(). Pass an explicit $field to opt back into a
+    // plain column.
+    //
+    // @ai
+    //		This table runs to ~153,000 rows. An unscoped, unlimited call
+    //		here pulls every city. Always pass $limit for a paginated
+    //		picker, or prefer getAsOptionsWhereCountryIs() /
+    //		getAsOptionsWhereStateIs() / getAsOptionsWhereStateAndCountryAre()
+    //		below to scope the query first -- the computed default label
+    //		doesn't change that cost calculus, it's still a lean pluck()
+    //		either way, but 153,000 options is never a usable dropdown
+    //		regardless of how cheap the query is.
+    //
+    // @see defaultLabelExpression()
+    //
+    // @param $key string - Attribute to key each option by [Ex: id]
+    // @param $field string|\Illuminate\Contracts\Database\Query\Expression|\Closure(\Illuminate\Database\Eloquent\Builder): void|null - Column, DB::raw() expression, or Closure -- null uses the "country - state - name" default [Ex: 'name']
+    // @param $limit int - Maximum options to return, or 0 for all [Ex: 25]
+    // @param $page int - 1-based page to return when $limit is set [Ex: 2]
+    // @param $modifyQuery ?\Closure(\Illuminate\Database\Eloquent\Builder): void - The caller's own query adjustments; owns ordering when given, unless $field is also left null (default country/state/name ordering applies)
+    //
+    // @return array<array-key, string>
+    //
+    public static function getAsOptions(string $key = 'id', string|Expression|Closure|null $field = null, int $limit = 0, int $page = 1, ?Closure $modifyQuery = null): array
+    {
+        if ($field === null) {
+            $field = static::defaultLabelExpression();
+            $modifyQuery ??= fn ($query) => $query->orderBy('country_id')->orderBy('state_id')->orderBy('name');
+        }
+
+        return static::getAsBaseOptions($key, $field, $limit, $page, $modifyQuery);
+    }
+
+
+    // Default Label Expression
+    //
+    // Builds getAsOptions()'s default "{country_id} - {state code} -
+    // {name}" label. No join needed: country_id is already on this table,
+    // and the bare state code is derived from state_id (the composite ISO
+    // 3166-2 id, e.g. "US-CA") via a fixed-offset substring -- see
+    // Concerns\BuildsFilteredOptions::substrFromSql() and the states
+    // migration for why "everything after the first 3 characters" is
+    // always the bare code.
+    //
+    // @ai
+    //		"{code} - " is built as one unit so a NULL state_id COALESCEs
+    //		the whole unit to '' rather than NULL-poisoning the surrounding
+    //		concatenation -- a real CONCAT()/|| gotcha: any NULL operand
+    //		nulls the whole result. A city with no state_id (no state-level
+    //		subdivision for that country, or the states dataset was off at
+    //		import) gets "US - Los Angeles"-shaped output instead of a
+    //		dangling separator or a NULL label.
+    //
+    // @return \Illuminate\Contracts\Database\Query\Expression
+    //
+    protected static function defaultLabelExpression(): Expression
+    {
+        $stateSegment = 'COALESCE('.static::concatSql([static::substrFromSql('state_id', 4), "' - '"]).", '')";
+
+        return DB::raw(static::concatSql(['country_id', "' - '", $stateSegment, 'name']).' AS label');
+    }
 
 
     // Get As Options Where State Is
