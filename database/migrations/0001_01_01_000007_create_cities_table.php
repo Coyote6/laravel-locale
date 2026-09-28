@@ -16,19 +16,26 @@ return new class extends Migration
     // is off.
     //
     // @ai
-    //		country_id/state_id/timezone_id all carry no hard FK constraint
-    //		— countries, states, and timezones are each independently
-    //		toggleable datasets, so a city's country/state/timezone table
-    //		may not exist even while cities does. state_id/timezone_id are
-    //		only populated when their own dataset is also enabled, left
-    //		null otherwise — City::state()/timezone() rely on that null to
-    //		stay safe via Eloquent's own null-foreign-key short-circuit.
-    //		country_id is different: it's always populated regardless of
-    //		config('locale.datasets.countries'), since the country code is
-    //		already known directly from the source's own per-city record,
-    //		no lookup against a countries table required — see
-    //		Models\City::country() for how a non-null FK to a possibly
-    //		nonexistent table stays safe anyway.
+    //		country_id/state_id/timezone_id each get a real, conditional
+    //		foreign key — countries, states, and timezones are each
+    //		independently toggleable datasets, so a city's country/state/
+    //		timezone table may not exist even while cities does; each FK is
+    //		added only when its own target dataset is ALSO on at the moment
+    //		this migration runs. state_id/timezone_id are only populated
+    //		when their own dataset is also enabled, left null otherwise —
+    //		City::state()/timezone() rely on that null to stay safe via
+    //		Eloquent's own null-foreign-key short-circuit regardless of
+    //		whether the FK constraint itself is present; nullOnDelete()
+    //		matches. country_id is different: it's always populated
+    //		regardless of config('locale.datasets.countries'), since the
+    //		country code is already known directly from the source's own
+    //		per-city record, no lookup against a countries table required —
+    //		see Models\City::country() for how the relationship stays safe
+    //		even when the FK isn't present. cascadeOnDelete() since this
+    //		column is required (never null). locale:config-refresh is what
+    //		keeps these in sync when a dataset is toggled after this
+    //		migration already ran — see its own docblock for why that
+    //		can't be inferred from config alone.
     //
     // @return void
     //
@@ -51,6 +58,27 @@ return new class extends Migration
 
             $table->index('state_id');
             $table->index('name');
+
+            if (config('locale.datasets.countries')) {
+                $table->foreign('country_id')
+                    ->references('id')
+                    ->on(config('locale.table_names.countries'))
+                    ->cascadeOnDelete();
+            }
+
+            if (config('locale.datasets.states')) {
+                $table->foreign('state_id')
+                    ->references('id')
+                    ->on(config('locale.table_names.states'))
+                    ->nullOnDelete();
+            }
+
+            if (config('locale.datasets.timezones')) {
+                $table->foreign('timezone_id')
+                    ->references('id')
+                    ->on(config('locale.table_names.timezones'))
+                    ->nullOnDelete();
+            }
         });
     }
 

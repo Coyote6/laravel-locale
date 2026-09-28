@@ -55,6 +55,12 @@ test('Country::languages returns an empty array when nothing is linked', functio
 });
 
 test('imports every code as-is, with no validation, when the countries dataset is off', function () {
+    // country_language's country_id FK (added at the initial full migrate
+    // in TestCase::setUp(), when countries was still on) would otherwise
+    // dangle once countries is dropped below -- see tests/Pest.php's
+    // detachForeignKey().
+    detachForeignKey(config('locale.table_names.country_language'), 'country_id');
+
     Schema::dropIfExists(config('locale.table_names.countries'));
     config(['locale.datasets.countries' => false]);
 

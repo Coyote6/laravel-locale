@@ -93,6 +93,13 @@ function fakeGeoRelease(): array
 }
 
 test('imports countries, states, and timezones, skipping zone names PHP does not recognize', function () {
+    // This test doesn't exercise region/subregion linkage, and fakeGeoRelease()
+    // includes region/subregion fields -- upsertCountry() would otherwise try
+    // to set region_id/subregion_id to slugs that don't exist as real rows
+    // (importRegionsAndSubregions() is a separate call this test never
+    // makes), violating countries' conditional FK to those tables.
+    config(['locale.datasets.regions' => false, 'locale.datasets.subregions' => false]);
+
     Http::fake([
         '*' => Http::response(gzencode(json_encode(fakeGeoRelease()))),
     ]);
@@ -122,6 +129,9 @@ test('imports countries, states, and timezones, skipping zone names PHP does not
 });
 
 test('imports cities keyed by the source\'s own id, resolving valid timezones and skipping invalid ones', function () {
+    // See the first test's comment above -- same reasoning.
+    config(['locale.datasets.regions' => false, 'locale.datasets.subregions' => false]);
+
     Http::fake([
         '*' => Http::response(gzencode(json_encode(fakeGeoRelease()))),
     ]);
@@ -148,6 +158,9 @@ test('imports cities keyed by the source\'s own id, resolving valid timezones an
 });
 
 test('re-running the import upserts rather than duplicating, including cities', function () {
+    // See the first test's comment above -- same reasoning.
+    config(['locale.datasets.regions' => false, 'locale.datasets.subregions' => false]);
+
     Http::fake([
         '*' => Http::response(gzencode(json_encode(fakeGeoRelease()))),
     ]);
@@ -184,6 +197,14 @@ test('shared currencies are deduplicated into one row, not repeated per country'
 });
 
 test('countries dataset off: country_id is still populated everywhere, but no Country row is written', function () {
+    // states/cities/country_timezone's country_id FKs (added at the initial
+    // full migrate in TestCase::setUp(), when countries was still on) would
+    // otherwise dangle once countries is dropped below -- see tests/Pest.php's
+    // detachForeignKey().
+    detachForeignKey(config('locale.table_names.states'), 'country_id');
+    detachForeignKey(config('locale.table_names.cities'), 'country_id');
+    detachForeignKey(config('locale.table_names.country_timezone'), 'country_id');
+
     Schema::dropIfExists(config('locale.table_names.countries'));
     config(['locale.datasets.countries' => false]);
 

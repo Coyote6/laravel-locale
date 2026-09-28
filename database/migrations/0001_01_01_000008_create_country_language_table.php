@@ -18,14 +18,20 @@ return new class extends Migration
     // Models\Country::languages() for how that stays safe to call anyway.
     //
     // @ai
-    //		language_code carries no hard FK constraint — there is no
-    //		languages table (see src/LocaleManager.php; language data is
-    //		looked up live via Symfony Intl, never stored). This table only
-    //		stores which language codes a country is linked to. country_id
-    //		carries no hard FK constraint either, now that countries is its
-    //		own toggleable dataset — see GeoDataImporter::importCountryLanguages()
-    //		for how it handles writing this table when the countries table
-    //		it would otherwise validate against doesn't exist.
+    //		language_code never gets a FK — there is no languages table
+    //		(see src/LocaleManager.php; language data is looked up live via
+    //		Symfony Intl, never stored). This table only stores which
+    //		language codes a country is linked to. country_id gets a real,
+    //		conditional foreign key — countries is its own toggleable
+    //		dataset, so it's added only when config('locale.datasets.countries')
+    //		is ALSO on at the moment this migration runs — see
+    //		GeoDataImporter::importCountryLanguages() for how it handles
+    //		writing this table when the countries table it would otherwise
+    //		validate against doesn't exist. cascadeOnDelete() since this
+    //		column is required (never null). locale:config-refresh is what
+    //		keeps this FK in sync when countries is toggled after this
+    //		migration already ran — see its own docblock for why that
+    //		can't be inferred from config alone.
     //
     // @return void
     //
@@ -40,6 +46,13 @@ return new class extends Migration
             $table->string('language_code');
 
             $table->primary(['country_id', 'language_code']);
+
+            if (config('locale.datasets.countries')) {
+                $table->foreign('country_id')
+                    ->references('id')
+                    ->on(config('locale.table_names.countries'))
+                    ->cascadeOnDelete();
+            }
         });
     }
 

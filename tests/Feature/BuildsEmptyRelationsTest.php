@@ -50,6 +50,15 @@ test('falls back when the configured table\'s own dataset is disabled', function
 });
 
 test('falls all the way back to migrations when every candidate is disabled or self-joins', function () {
+    // countries.currency_id/region_id/subregion_id's FKs (added at the
+    // initial full migrate in TestCase::setUp(), when their targets were
+    // still on) would otherwise dangle once currencies/regions/subregions
+    // are dropped below and a new Country row is created further down --
+    // see tests/Pest.php's detachForeignKey().
+    detachForeignKey(config('locale.table_names.countries'), 'currency_id');
+    detachForeignKey(config('locale.table_names.countries'), 'region_id');
+    detachForeignKey(config('locale.table_names.countries'), 'subregion_id');
+
     foreach (['currencies', 'states', 'timezones', 'regions', 'subregions', 'cities'] as $dataset) {
         Schema::dropIfExists(config("locale.table_names.{$dataset}"));
         config(["locale.datasets.{$dataset}" => false]);
@@ -84,6 +93,14 @@ test('belongsTo relationships pointing at a disabled countries table stay safe d
     // in this package) — GeoDataImporter keeps writing the real code
     // regardless of config('locale.datasets.countries'), so these can't
     // rely on Eloquent's null-FK short-circuit at all.
+    //
+    // states.country_id/cities.country_id's FKs (added at the initial full
+    // migrate in TestCase::setUp(), when countries was still on) would
+    // otherwise dangle once countries is dropped below and new State/City
+    // rows are created further down -- see tests/Pest.php's detachForeignKey().
+    detachForeignKey(config('locale.table_names.states'), 'country_id');
+    detachForeignKey(config('locale.table_names.cities'), 'country_id');
+
     Schema::dropIfExists(config('locale.table_names.countries'));
     config(['locale.datasets.countries' => false]);
 

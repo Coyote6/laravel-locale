@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Real, conditional foreign keys on every cross-table column that was
+  previously a bare, unenforced value: `states.country_id`,
+  `cities.country_id`/`state_id`/`timezone_id`,
+  `countries.currency_id`/`region_id`/`subregion_id`,
+  `subregions.region_id`, and `country_timezone.country_id`/
+  `country_language.country_id` (alongside the existing
+  `country_timezone.timezone_id` FK). Each is added only when its target
+  dataset is *also* enabled at the moment that migration runs — never
+  against a table that might not exist — cascading on delete for a required
+  column, nulling on delete for a nullable one. `locale.php`'s own
+  `foreign_key_constraints` sqlite setting in `tests/TestCase.php` is now
+  explicitly `true` (previously absent, which meant sqlite silently never
+  enforced any FK at all, including the one that already existed).
+
 - `Country`, `Currency`, `Region`, `State`, `Timezone`, `Subregion`, and
   `City` now compose `coyote6/laravel-base`'s `GetAsOptions`, so every one
   exposes `Model::getAsOptions(string $key = 'id', string $field = 'name',
@@ -55,6 +69,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a sqlite matrix (`php: 8.3/8.4` × `dependency-version: lowest/highest`)
   plus a dedicated `test-mariadb` job against a real `mariadb:11` service
   container, mirroring `coyote6/laravel-base`'s CI.
+
+### Fixed
+
+- `locale:sync` imported countries (which write `region_id`/`subregion_id`
+  whenever those datasets are enabled) *before* regions/subregions
+  themselves existed. Harmless while those columns carried no constraint;
+  now that they carry a real conditional foreign key (see Added, above), it
+  would have broken every sync on any driver that enforces foreign keys.
+  `SyncLocaleData` now imports regions/subregions first.
 
 ### Changed
 

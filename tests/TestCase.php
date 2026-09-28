@@ -38,9 +38,7 @@ abstract class TestCase extends Orchestra
     //
     // Sqlite in-memory by default (local dev, and the main CI matrix) --
     // or, when DB_CONNECTION is set (the CI real-MariaDB leg), a real
-    // connection built from the standard DB_* environment variables. Local
-    // runs with no DB_CONNECTION set are unaffected -- same hardcoded
-    // sqlite array as before this method existed.
+    // connection built from the standard DB_* environment variables.
     //
     // @ai
     //		Deliberately not named test*() -- this project's Pint config
@@ -48,6 +46,19 @@ abstract class TestCase extends Orchestra
     //		(php_unit_method_casing, tuned for Pest-style test names), which
     //		would mangle a helper method like this one that just happens to
     //		share that prefix without being an actual test.
+    //
+    // @ai
+    //		'foreign_key_constraints' => true is deliberate, not a default
+    //		Laravel picks for you: SQLiteConnector::configureForeignKeyConstraints()
+    //		only runs `PRAGMA foreign_keys = ...` when this key is actually
+    //		present in the connection array -- leave it unset and SQLite
+    //		silently keeps its own native default (OFF), meaning every FK
+    //		constraint in this package's migrations would never actually be
+    //		enforced in a local/CI-sqlite test run, and a real ordering bug
+    //		would pass here and only ever surface against a real MySQL/
+    //		MariaDB/Postgres connection (i.e. the test-mariadb CI leg). Set
+    //		explicitly so local `vendor/bin/pest` runs mean the same thing
+    //		production does.
     //
     // @return array
     //
@@ -58,6 +69,7 @@ abstract class TestCase extends Orchestra
                 'driver' => 'sqlite',
                 'database' => ':memory:',
                 'prefix' => '',
+                'foreign_key_constraints' => true,
             ];
         }
 

@@ -16,15 +16,17 @@ return new class extends Migration
     // safe to call anyway.
     //
     // @ai
-    //		currency_id has no hard foreign key constraint, unlike an earlier
-    //		version of this migration — currencies is now a toggleable
-    //		dataset like states/timezones/regions/subregions, so its table
-    //		may not exist at all. A constraint referencing a table that
-    //		might not exist would break `migrate` outright. GeoDataImporter
-    //		only ever writes a real value into this column when
-    //		config('locale.datasets.currencies') is on (see upsertCountry()),
-    //		leaving it null otherwise — the same null-FK safety net
-    //		Country::currency() already relies on.
+    //		currency_id/region_id/subregion_id each get a real, conditional
+    //		foreign key -- added only when their target dataset is ALSO
+    //		enabled at the moment this migration runs (config('locale.datasets.currencies')/
+    //		'regions'/'subregions'), so the constraint is never added
+    //		against a table that might not exist. GeoDataImporter only ever
+    //		writes a real value into these columns when the matching
+    //		dataset is on (see upsertCountry()), leaving them null
+    //		otherwise, so nullOnDelete() is the safe default either way.
+    //		locale:config-refresh is what keeps these in sync when a
+    //		dataset is toggled after this migration already ran -- see its
+    //		own docblock for why that can't be inferred from config alone.
     //
     // @return void
     //
@@ -55,6 +57,27 @@ return new class extends Migration
             $table->boolean('is_active')->default(true);
             $table->timestamp('synced_at')->nullable();
             $table->timestamps();
+
+            if (config('locale.datasets.currencies')) {
+                $table->foreign('currency_id')
+                    ->references('id')
+                    ->on(config('locale.table_names.currencies'))
+                    ->nullOnDelete();
+            }
+
+            if (config('locale.datasets.regions')) {
+                $table->foreign('region_id')
+                    ->references('id')
+                    ->on(config('locale.table_names.regions'))
+                    ->nullOnDelete();
+            }
+
+            if (config('locale.datasets.subregions')) {
+                $table->foreign('subregion_id')
+                    ->references('id')
+                    ->on(config('locale.table_names.subregions'))
+                    ->nullOnDelete();
+            }
         });
     }
 

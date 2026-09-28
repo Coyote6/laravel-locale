@@ -17,12 +17,19 @@ return new class extends Migration
     // config('locale.datasets.timezones') is off.
     //
     // @ai
-    //		country_id carries no hard FK constraint — countries is its own
-    //		toggleable dataset, independent of timezones, so this table may
-    //		exist while countries doesn't. timezone_id keeps its constraint:
-    //		this table and 'timezones' are both gated by the same
+    //		timezone_id's constraint is unconditional: this table and
+    //		'timezones' are both gated by the same
     //		config('locale.datasets.timezones') flag, so if this table
-    //		exists, timezones always does too.
+    //		exists, timezones always does too. country_id's constraint is
+    //		conditional -- countries is independently toggleable, so this
+    //		table may exist while countries doesn't -- added only when
+    //		config('locale.datasets.countries') is ALSO on at the moment
+    //		this migration runs. cascadeOnDelete() on both: this column is
+    //		required (never null), and a pivot row with no country/timezone
+    //		to pivot doesn't make sense to keep. locale:config-refresh is
+    //		what keeps the country_id FK in sync when countries is toggled
+    //		after this migration already ran -- see its own docblock for
+    //		why that can't be inferred from config alone.
     //
     // @return void
     //
@@ -42,6 +49,13 @@ return new class extends Migration
                 ->references('id')
                 ->on(config('locale.table_names.timezones'))
                 ->cascadeOnDelete();
+
+            if (config('locale.datasets.countries')) {
+                $table->foreign('country_id')
+                    ->references('id')
+                    ->on(config('locale.table_names.countries'))
+                    ->cascadeOnDelete();
+            }
         });
     }
 

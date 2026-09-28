@@ -57,6 +57,12 @@ test('a genuinely nonexistent table (disabled dataset) does not break its relati
     // was false when migrate ran, so the table was never created at all —
     // not just "config toggled after the table already existed". Dropping
     // the tables directly here simulates that precisely.
+    // countries.subregion_id's FK (added at the initial full migrate in
+    // TestCase::setUp(), when subregions was still on) would otherwise
+    // dangle once subregions is dropped below and a new Country row is
+    // created further down -- see tests/Pest.php's detachForeignKey().
+    detachForeignKey(config('locale.table_names.countries'), 'subregion_id');
+
     Schema::dropIfExists(config('locale.table_names.country_timezone'));
     Schema::dropIfExists(config('locale.table_names.timezones'));
     Schema::dropIfExists(config('locale.table_names.states'));

@@ -15,14 +15,22 @@ return new class extends Migration
     // Models\Country::states() for how that stays safe to call anyway.
     //
     // @ai
-    //		country_id carries no hard foreign key constraint — countries is
-    //		now its own toggleable dataset (see config/locale.php), so its
-    //		table may not exist at all even while states does. Unlike
-    //		region_id/currency_id elsewhere in this package, this column is
-    //		still always populated regardless: the country code is already
-    //		known directly from the source's own per-state record, no
-    //		lookup against a countries table required. See
-    //		GeoDataImporter::upsertState() and Models\State::country().
+    //		country_id gets a real, conditional foreign key -- added only
+    //		when config('locale.datasets.countries') is ALSO on at the
+    //		moment this migration runs, so the constraint is never added
+    //		against a table that might not exist. Unlike region_id/
+    //		currency_id elsewhere in this package, this column is always
+    //		populated regardless of whether the FK gets added: the country
+    //		code is already known directly from the source's own per-state
+    //		record, no lookup against a countries table required. See
+    //		GeoDataImporter::upsertState() and Models\State::country() for
+    //		how the relationship itself stays safe even when the FK isn't
+    //		present. cascadeOnDelete() since this column is required
+    //		(never null) -- a state with no country doesn't make sense to
+    //		keep. locale:config-refresh is what keeps this FK in sync when
+    //		a dataset is toggled after this migration already ran -- see
+    //		its own docblock for why that can't be inferred from config
+    //		alone.
     //
     // @return void
     //
@@ -42,6 +50,13 @@ return new class extends Migration
             $table->decimal('longitude', 11, 8)->nullable();
             $table->timestamp('synced_at')->nullable();
             $table->timestamps();
+
+            if (config('locale.datasets.countries')) {
+                $table->foreign('country_id')
+                    ->references('id')
+                    ->on(config('locale.table_names.countries'))
+                    ->cascadeOnDelete();
+            }
         });
     }
 

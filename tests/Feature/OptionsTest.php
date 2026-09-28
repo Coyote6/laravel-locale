@@ -133,6 +133,15 @@ test('Timezone::getAsOptionsWhereCountryIs still resolves when the countries dat
     Timezone::query()->create(['id' => 'America/Chicago', 'abbreviation' => 'CST', 'name' => 'Central Standard Time']);
     Country::query()->find('US')->timezones()->attach('America/Chicago');
 
+    // country_timezone.country_id's FK (added at the initial full migrate
+    // in TestCase::setUp(), when countries was still on) cascades on
+    // delete -- on sqlite specifically, DROP TABLE on the FK's target
+    // performs an implicit cascading delete on the referencing rows
+    // *before* the drop (a documented sqlite behavior, not a bug here), so
+    // without detaching first the attach() above would be silently wiped
+    // out from under this test. See tests/Pest.php's detachForeignKey().
+    detachForeignKey(config('locale.table_names.country_timezone'), 'country_id');
+
     Schema::dropIfExists(config('locale.table_names.countries'));
     config(['locale.datasets.countries' => false]);
 
